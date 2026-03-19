@@ -83,6 +83,38 @@ priority must be high/medium/low. _diagnosisType must be nursing or medical. Rep
   }
 });
 
+// ── Drugs by Indication ──
+app.post('/api/drugs-by-indication', async (req, res) => {
+  const { indication } = req.body;
+  if (!indication) return res.status(400).json({ error: 'indication required' });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+
+  const prompt = `You are a clinical pharmacist. List 8 important drugs commonly used for: "${indication}".
+
+Respond ONLY with valid JSON — no markdown, no backticks:
+{
+  "drugs": [
+    {
+      "name": "Brand name",
+      "genericName": "Generic name",
+      "drugClass": "Drug class",
+      "whyUsed": "One simple sentence explaining why this drug is used for ${indication}"
+    }
+  ]
+}
+Return exactly 8 drugs. Use simple plain language a student nurse can understand. Replace all placeholders with real drug names.`;
+
+  try {
+    const data = await callClaude(prompt, 1000);
+    return res.json(data);
+  } catch (err) {
+    console.error('Indication search error:', err.message);
+    return res.status(500).json({ error: 'Failed to find drugs.' });
+  }
+});
+
 // ── Drug Profile ──
 app.post('/api/drug', async (req, res) => {
   const { drug } = req.body;
@@ -100,7 +132,7 @@ Respond ONLY with valid JSON — no markdown, no backticks, no extra text:
   "dosage": "frequency and schedule",
   "route": "routes of administration",
   "indications": ["indication 1", "indication 2", "indication 3"],
-  "modeOfAction": "detailed mechanism of action",
+  "modeOfAction": "explain in simple everyday language how this drug works in the body — as if explaining to a student nurse (avoid complex biochemistry terms)",
   "sideEffects": ["effect 1", "effect 2", "effect 3", "effect 4", "effect 5"],
   "contraindications": ["contra 1", "contra 2", "contra 3"],
   "nursingConsiderations": ["consideration 1", "consideration 2", "consideration 3", "consideration 4", "consideration 5", "consideration 6"],
