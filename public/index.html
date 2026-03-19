@@ -3196,6 +3196,15 @@ function showLoginSuccess(msg) {
   document.getElementById('login-error').style.display = 'none';
 }
 
+// ── Firebase ready check (max 5s) ──
+async function waitForFirebase(fnName) {
+  for (let i = 0; i < 50; i++) {
+    if (window[fnName]) return true;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return false;
+}
+
 // ── Sign In ──
 window.doSignIn = async function() {
   const email = document.getElementById('si-email').value.trim();
@@ -3203,9 +3212,11 @@ window.doSignIn = async function() {
   const btn   = document.getElementById('signin-btn');
   if (!email || !pw) { showLoginError('Please enter email and password.'); return; }
   btn.textContent = 'Signing in…'; btn.disabled = true;
-
+  if (!await waitForFirebase('_firebaseSignIn')) {
+    showLoginError('App failed to load. Please refresh the page.');
+    btn.textContent = 'Sign In'; btn.disabled = false; return;
+  }
   try {
-    if (!window._firebaseSignIn) throw { code: 'app/not-ready' };
     await window._firebaseSignIn(email, pw);
   } catch(err) {
     showLoginError(authErrMsg(err.code));
@@ -3223,9 +3234,11 @@ window.doSignUp = async function() {
   if (!name || !email || !pw) { showLoginError('Please fill in all required fields.'); return; }
   if (pw.length < 6) { showLoginError('Password must be at least 6 characters.'); return; }
   btn.textContent = 'Creating account…'; btn.disabled = true;
-
+  if (!await waitForFirebase('_firebaseSignUp')) {
+    showLoginError('App failed to load. Please refresh the page.');
+    btn.textContent = 'Create Account'; btn.disabled = false; return;
+  }
   try {
-    if (!window._firebaseSignUp) throw { code: 'app/not-ready' };
     await window._firebaseSignUp(email, pw, name, code);
   } catch(err) {
     showLoginError(authErrMsg(err.code));
@@ -3235,8 +3248,10 @@ window.doSignUp = async function() {
 
 // ── Google Sign In ──
 window.doGoogleSignIn = async function() {
+  if (!await waitForFirebase('_firebaseGoogleSignIn')) {
+    showLoginError('App failed to load. Please refresh the page.'); return;
+  }
   try {
-    if (!window._firebaseGoogleSignIn) throw { code: 'app/not-ready' };
     await window._firebaseGoogleSignIn();
   } catch(err) {
     if (err.code !== 'auth/popup-closed-by-user') {
