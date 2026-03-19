@@ -1,14 +1,14 @@
 {
   "name": "nursecare-ai",
   "version": "1.0.0",
-  "description": "NurseCare AI — NANDA-I Care Plan Generator",
+  "description": "NurseCare AI \u2014 NANDA-I Care Plan Generator",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "express": "^4.18.2"
