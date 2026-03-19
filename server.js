@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 
 // Node 22 has fetch built-in — no node-fetch needed
 const app = express();
@@ -149,23 +148,9 @@ Replace ALL placeholder text with real accurate clinical content for ${drug}.`;
   }
 });
 
-// ── Fallback: inject SW registration + serve index.html ──
+// ── Fallback: serve index.html ──
 app.get('*', (req, res) => {
-  const filePath = path.join(__dirname, 'public', 'index.html');
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error loading app');
-    const swScript = `<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js')
-      .then(function(r) { console.log('SW registered:', r.scope); })
-      .catch(function(e) { console.log('SW failed:', e); });
-  });
-}
-</script>`;
-    res.setHeader('Content-Type', 'text/html');
-    res.send(data.replace('</body>', swScript + '\n</body>'));
-  });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
