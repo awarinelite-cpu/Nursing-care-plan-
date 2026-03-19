@@ -3870,17 +3870,19 @@ window.adminGrantAccess = async function(userId, plan) {
   window._firebaseSignUp = async (email, pw, name, code) => {
     const cred = await createUserWithEmailAndPassword(auth, email, pw);
     if (name) await updateProfile(cred.user, { displayName: name });
-    // If code provided, validate it via server
-    if (code) {
+    // Only call redeem-code if a code was actually entered
+    if (code && code.trim() !== '') {
       try {
         const resp = await fetch('/api/redeem-code', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, userId: cred.user.uid, email })
         });
-        const data = await resp.json();
-        if (data.success) window._userAccessPlan = data;
-      } catch(e) { /* code validation happens after login */ }
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success) window._userAccessPlan = data;
+        }
+      } catch(e) { /* code validation optional — ignore errors */ }
     }
   };
 
