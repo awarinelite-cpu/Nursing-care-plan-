@@ -3176,7 +3176,14 @@ let _freeUsage = { subclassViewed: null, drugViewed: null }; // track free usage
 const ADMIN_EMAIL = 'mynote0416@gmail.com';
 
 // ── Login Tab Switcher ──
-
+window.switchLoginTab = function(tab) {
+  document.getElementById('signin-form').style.display = tab === 'signin' ? 'block' : 'none';
+  document.getElementById('signup-form').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('tab-signin-btn').classList.toggle('active', tab === 'signin');
+  document.getElementById('tab-signup-btn').classList.toggle('active', tab === 'signup');
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('login-success').style.display = 'none';
+};
 
 function showLoginError(msg) {
   const el = document.getElementById('login-error');
@@ -3189,14 +3196,84 @@ function showLoginSuccess(msg) {
   document.getElementById('login-error').style.display = 'none';
 }
 
+// ── Sign In ──
+window.doSignIn = async function() {
+  const email = document.getElementById('si-email').value.trim();
+  const pw    = document.getElementById('si-password').value;
+  const btn   = document.getElementById('signin-btn');
+  if (!email || !pw) { showLoginError('Please enter email and password.'); return; }
+  btn.textContent = 'Signing in…'; btn.disabled = true;
 
+  // Wait for Firebase to be ready (max 8 seconds)
+  let attempts = 0;
+  while (!window._firebaseSignIn && attempts < 80) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+  if (!window._firebaseSignIn) {
+    showLoginError('App not ready. Please refresh the page and try again.');
+    btn.textContent = 'Sign In'; btn.disabled = false;
+    return;
+  }
 
+  try {
+    await window._firebaseSignIn(email, pw);
+  } catch(err) {
+    showLoginError(authErrMsg(err.code));
+    btn.textContent = 'Sign In'; btn.disabled = false;
+  }
+};
 
+// ── Sign Up ──
+window.doSignUp = async function() {
+  const name  = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pw    = document.getElementById('su-password').value;
+  const code  = document.getElementById('su-code').value.trim().toUpperCase();
+  const btn   = document.getElementById('signup-btn');
+  if (!name || !email || !pw) { showLoginError('Please fill in all required fields.'); return; }
+  if (pw.length < 6) { showLoginError('Password must be at least 6 characters.'); return; }
+  btn.textContent = 'Creating account…'; btn.disabled = true;
+
+  // Wait for Firebase to be ready (max 8 seconds)
+  let attempts = 0;
+  while (!window._firebaseSignUp && attempts < 80) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+  if (!window._firebaseSignUp) {
+    showLoginError('App not ready. Please refresh the page and try again.');
+    btn.textContent = 'Create Account'; btn.disabled = false;
+    return;
+  }
+
+  try {
+    await window._firebaseSignUp(email, pw, name, code);
+  } catch(err) {
+    showLoginError(authErrMsg(err.code));
+    btn.textContent = 'Create Account'; btn.disabled = false;
+  }
+};
 
 // ── Google Sign In ──
+// ── Firebase ready check (max 5s) ──
+async function waitForFirebase(fnName) {
+  for (let i = 0; i < 50; i++) {
+    if (window[fnName]) return true;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return false;
+}
+
 window.doGoogleSignIn = async function() {
-  if (!await waitForFirebase('_firebaseGoogleSignIn')) {
-    showLoginError('App failed to load. Please refresh the page.'); return;
+  let attempts = 0;
+  while (!window._firebaseGoogleSignIn && attempts < 80) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+  if (!window._firebaseGoogleSignIn) {
+    showLoginError('App not ready. Please refresh and try again.');
+    return;
   }
   try {
     await window._firebaseGoogleSignIn();
@@ -3207,7 +3284,31 @@ window.doGoogleSignIn = async function() {
   }
 };
 
+// ── Forgot Password ──
+window.showForgotPassword = async function() {
+  const email = document.getElementById('si-email').value.trim();
+  if (!email) {
+    showLoginError('Enter your email address above first, then click Forgot Password.');
+    return;
+  }
 
+  let attempts = 0;
+  while (!window._firebaseForgotPassword && attempts < 80) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+  if (!window._firebaseForgotPassword) {
+    showLoginError('App not ready. Please refresh the page.');
+    return;
+  }
+
+  try {
+    await window._firebaseForgotPassword(email);
+    showLoginSuccess('✅ Password reset email sent! Check your inbox.');
+  } catch(err) {
+    showLoginError('Could not send reset email. Check the address and try again.');
+  }
+};
 
 // ── Called when Firebase auth state changes ──
 window._onAuthSuccess = async function(user, db, setDoc, getDoc, docRef) {
@@ -3550,20 +3651,73 @@ window.adminGrantAccess = async function(userId, plan) {
       <div class="login-logo-sub">Clinical Reference Platform</div>
     </div>
 
-    <p style="text-align:center;color:var(--text-mid);font-size:14px;margin-bottom:24px;">
-      Sign in to access evidence-based nursing care plans and drug reference.
-    </p>
+    <div class="login-tabs">
+      <button class="login-tab active" id="tab-signin-btn" onclick="switchLoginTab('signin')">Sign In</button>
+      <button class="login-tab" id="tab-signup-btn" onclick="switchLoginTab('signup')">Create Account</button>
+    </div>
 
     <div id="login-error" class="login-error"></div>
     <div id="login-success" class="login-success"></div>
 
-    <button class="google-btn" onclick="doGoogleSignIn()" id="google-signin-btn">
-      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
-      Continue with Google
-    </button>
+    <!-- SIGN IN FORM -->
+    <div id="signin-form">
+      <div class="login-field">
+        <label>Email Address</label>
+        <input type="email" id="si-email" placeholder="your@email.com" autocomplete="email"/>
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="si-password" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <div class="login-forgot"><a onclick="showForgotPassword()">Forgot password?</a></div>
+      <button class="login-submit-btn" id="signin-btn" onclick="doSignIn()">Sign In</button>
+      <div class="login-divider">or</div>
+      <button class="google-btn" onclick="doGoogleSignIn()">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+        Continue with Google
+      </button>
+      <script>
+        // Enter key triggers sign in / sign up
+        document.addEventListener('DOMContentLoaded', function() {
+          ['si-email','si-password'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doSignIn(); });
+          });
+          ['su-name','su-email','su-password','su-code'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doSignUp(); });
+          });
+        });
+      </script>
+      <div class="promo-badge">
+        🎓 Free: 1 drug class preview &nbsp;|&nbsp; ₦2,000 = 6 months &nbsp;|&nbsp; ₦8,000 = Lifetime
+      </div>
+    </div>
 
-    <div class="promo-badge" style="margin-top:20px;">
-      🎓 Free: 1 drug class preview &nbsp;|&nbsp; ₦2,000 = 6 months &nbsp;|&nbsp; ₦8,000 = Lifetime
+    <!-- SIGN UP FORM -->
+    <div id="signup-form" style="display:none;">
+      <div class="login-field">
+        <label>Full Name</label>
+        <input type="text" id="su-name" placeholder="e.g. Adaeze Johnson, RN"/>
+      </div>
+      <div class="login-field">
+        <label>Email Address</label>
+        <input type="email" id="su-email" placeholder="your@email.com" autocomplete="email"/>
+      </div>
+      <div class="login-field">
+        <label>Password (min 6 characters)</label>
+        <input type="password" id="su-password" placeholder="Choose a strong password"/>
+      </div>
+      <div class="login-field">
+        <label>Product Code (optional — if you have one)</label>
+        <input type="text" id="su-code" placeholder="e.g. NC-XXXX-XXXX" style="text-transform:uppercase;"/>
+      </div>
+      <button class="login-submit-btn" id="signup-btn" onclick="doSignUp()">Create Account</button>
+      <div class="login-divider">or</div>
+      <button class="google-btn" onclick="doGoogleSignIn()">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+        Continue with Google
+      </button>
     </div>
   </div>
 </div>
@@ -3703,13 +3857,13 @@ window.adminGrantAccess = async function(userId, plan) {
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyAsSmqpkrXEMLL4wdoEn_jD3juAy8Z-w9A",
-    authDomain: "elitecarehub-a80da.firebaseapp.com",
+    apiKey: "AIzaSyAB8yCfmdvOTWRpj50Hhc7AWuabWLDvy6k",
+    authDomain: "nacon-post-utme-past-question.firebaseapp.com",
     databaseURL: "https://nacon-post-utme-past-question-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "elitecarehub-a80da",
-    storageBucket: "elitecarehub-a80da.firebasestorage.app",
-    messagingSenderId: "76292607120",
-    appId: "1:76292607120:web:a1cd930c911b928d76dc15",
+    projectId: "nacon-post-utme-past-question",
+    storageBucket: "nacon-post-utme-past-question.firebasestorage.app",
+    messagingSenderId: "1090299637128",
+    appId: "1:1090299637128:web:09adfeb3cfffc3a29fde3d",
     measurementId: "G-GJVNVY535Y"
   };
 
@@ -3725,19 +3879,17 @@ window.adminGrantAccess = async function(userId, plan) {
   window._firebaseSignUp = async (email, pw, name, code) => {
     const cred = await createUserWithEmailAndPassword(auth, email, pw);
     if (name) await updateProfile(cred.user, { displayName: name });
-    // Only call redeem-code if a code was actually entered
-    if (code && code.trim() !== '') {
+    // If code provided, validate it via server
+    if (code) {
       try {
         const resp = await fetch('/api/redeem-code', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, userId: cred.user.uid, email })
         });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data.success) window._userAccessPlan = data;
-        }
-      } catch(e) { /* code validation optional — ignore errors */ }
+        const data = await resp.json();
+        if (data.success) window._userAccessPlan = data;
+      } catch(e) { /* code validation happens after login */ }
     }
   };
 
@@ -3751,25 +3903,14 @@ window.adminGrantAccess = async function(userId, plan) {
 
   // ── Google Sign In ──
   window._firebaseGoogleSignIn = async () => {
-    const { GoogleAuthProvider, signInWithRedirect } = await import(
+    const { GoogleAuthProvider, signInWithPopup } = await import(
       'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'
     );
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
+    // onAuthStateChanged handles the rest
   };
-
-  // Handle redirect result on page load
-  (async () => {
-    try {
-      const { getRedirectResult } = await import(
-        'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'
-      );
-      await getRedirectResult(auth);
-    } catch (err) {
-      console.error('Redirect result error:', err.code, err.message);
-    }
-  })();
 
 
   /* ══════════════════════════════════════════
@@ -3844,14 +3985,6 @@ window.adminGrantAccess = async function(userId, plan) {
   let currentUser = null;
   let currentDiagnosis = null;
 
-  /* ── Auth element references ── */
-  const saveToast    = document.getElementById('save-toast');
-  const savedPanel   = document.getElementById('saved-panel');
-  const savedList    = document.getElementById('saved-list');
-  const myPlansBtn   = document.getElementById('my-plans-btn');
-  const panelClose   = document.getElementById('panel-close');
-  const savePlanBtn  = document.getElementById('save-plan-btn');
-
   /* ── Auth state listener — wired to auth gate ── */
   onAuthStateChanged(auth, async user => {
     currentUser = user;
@@ -3885,6 +4018,31 @@ window.adminGrantAccess = async function(userId, plan) {
     }
   });
 
+  authSubmit.addEventListener('click', async () => {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    const name = authName.value.trim();
+    authError.style.display = 'none';
+    authSubmit.textContent = 'Please wait…';
+    authSubmit.disabled = true;
+
+    try {
+      if (isSignUp) {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        if (name) await updateProfile(cred.user, { displayName: name });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      authOverlay.classList.remove('active');
+      showToast('✅ Signed in successfully!');
+    } catch (err) {
+      authError.textContent = friendlyError(err.code);
+      authError.style.display = 'block';
+    }
+    authSubmit.textContent = isSignUp ? 'Create Account' : 'Sign In';
+    authSubmit.disabled = false;
+  });
+
   /* ── Sign out ── */
   const logoutBtn = document.getElementById('logout-btn');
   logoutBtn.addEventListener('click', async () => {
@@ -3896,7 +4054,7 @@ window.adminGrantAccess = async function(userId, plan) {
 
   /* ── Save current plan ── */
   savePlanBtn.addEventListener('click', async () => {
-    if (!currentUser) { showLoginError('Please sign in first.'); return; }
+    if (!currentUser) { authOverlay.classList.add('active'); return; }
     if (!currentDiagnosis) return;
     try {
       await addDoc(collection(db, 'users', currentUser.uid, 'plans'), {
