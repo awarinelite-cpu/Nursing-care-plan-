@@ -3954,6 +3954,9 @@ window.adminGrantAccess = async function(userId, plan) {
   onAuthStateChanged(auth, async user => {
     currentUser = user;
     if (user) {
+      // IMMEDIATELY hide auth gate
+      document.getElementById('auth-gate').style.display = 'none';
+
       // Update header
       const loginBtn = document.getElementById('login-btn');
       const userBar  = document.getElementById('user-bar');
@@ -3967,10 +3970,33 @@ window.adminGrantAccess = async function(userId, plan) {
       const adminBtn = document.getElementById('admin-header-btn');
       if (adminBtn && user.email === 'mynote0416@gmail.com') adminBtn.style.display = 'inline-block';
 
-      // Pass to auth gate handler
-      if (window._onAuthSuccess) {
-        await window._onAuthSuccess(user, db, setDoc, getDoc, doc);
+      // Load Firestore access + call _onAuthSuccess in background
+      try {
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        if (!snap.exists()) {
+          await setDoc(doc(db, 'users', user.uid), {
+            name: user.displayName || '',
+            email: user.email,
+            plan: 'free',
+            joinedAt: new Date().toISOString(),
+            expiresAt: null
+          });
+        }
+      } catch(e) {
+        console.warn('Firestore user record (non-fatal):', e.message);
       }
+
+      if (window._onAuthSuccess) {
+        try {
+          await window._onAuthSuccess(user, db, setDoc, getDoc, doc);
+        } catch(e) {
+          console.warn('_onAuthSuccess (non-fatal):', e.message);
+        }
+      }
+
+      // Keep gate hidden after all async ops
+      document.getElementById('auth-gate').style.display = 'none';
+
     } else {
       // Show auth gate
       document.getElementById('auth-gate').style.display = 'flex';
