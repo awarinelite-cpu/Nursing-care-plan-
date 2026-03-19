@@ -3894,28 +3894,23 @@ window.adminGrantAccess = async function(userId, plan) {
 
   // ── Google Sign In ──
   window._firebaseGoogleSignIn = async () => {
-    const { GoogleAuthProvider, signInWithRedirect, getRedirectResult } = await import(
+    const { GoogleAuthProvider, signInWithRedirect } = await import(
       'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'
     );
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     await signInWithRedirect(auth, provider);
-    // onAuthStateChanged handles the rest after redirect
   };
 
-  // ── Handle redirect result on page load ──
+  // Handle redirect result on page load
   (async () => {
     try {
       const { getRedirectResult } = await import(
         'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'
       );
-      const result = await getRedirectResult(auth);
-      if (result && result.user) {
-        // onAuthStateChanged will handle UI update
-        console.log('Google redirect sign-in successful');
-      }
+      await getRedirectResult(auth);
     } catch (err) {
-      console.error('Redirect result error:', err);
+      console.error('Redirect result error:', err.code, err.message);
     }
   })();
 
@@ -3991,6 +3986,21 @@ window.adminGrantAccess = async function(userId, plan) {
 
   let currentUser = null;
   let currentDiagnosis = null;
+
+  /* ── Auth element references ── */
+  const authSubmit   = document.getElementById('auth-submit');
+  const authEmail    = document.getElementById('auth-email');
+  const authPassword = document.getElementById('auth-password');
+  const authName     = document.getElementById('auth-name');
+  const authError    = document.getElementById('auth-error');
+  const authOverlay  = document.getElementById('auth-overlay');
+  const saveToast    = document.getElementById('save-toast');
+  const savedPanel   = document.getElementById('saved-panel');
+  const savedList    = document.getElementById('saved-list');
+  const myPlansBtn   = document.getElementById('my-plans-btn');
+  const panelClose   = document.getElementById('panel-close');
+  const savePlanBtn  = document.getElementById('save-plan-btn');
+  let isSignUp = false;
 
   /* ── Auth state listener — wired to auth gate ── */
   onAuthStateChanged(auth, async user => {
