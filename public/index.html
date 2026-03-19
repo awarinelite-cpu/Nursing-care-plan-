@@ -3204,19 +3204,8 @@ window.doSignIn = async function() {
   if (!email || !pw) { showLoginError('Please enter email and password.'); return; }
   btn.textContent = 'Signing in…'; btn.disabled = true;
 
-  // Wait for Firebase to be ready (max 8 seconds)
-  let attempts = 0;
-  while (!window._firebaseSignIn && attempts < 80) {
-    await new Promise(r => setTimeout(r, 100));
-    attempts++;
-  }
-  if (!window._firebaseSignIn) {
-    showLoginError('App not ready. Please refresh the page and try again.');
-    btn.textContent = 'Sign In'; btn.disabled = false;
-    return;
-  }
-
   try {
+    if (!window._firebaseSignIn) throw { code: 'app/not-ready' };
     await window._firebaseSignIn(email, pw);
   } catch(err) {
     showLoginError(authErrMsg(err.code));
@@ -3235,19 +3224,8 @@ window.doSignUp = async function() {
   if (pw.length < 6) { showLoginError('Password must be at least 6 characters.'); return; }
   btn.textContent = 'Creating account…'; btn.disabled = true;
 
-  // Wait for Firebase to be ready (max 8 seconds)
-  let attempts = 0;
-  while (!window._firebaseSignUp && attempts < 80) {
-    await new Promise(r => setTimeout(r, 100));
-    attempts++;
-  }
-  if (!window._firebaseSignUp) {
-    showLoginError('App not ready. Please refresh the page and try again.');
-    btn.textContent = 'Create Account'; btn.disabled = false;
-    return;
-  }
-
   try {
+    if (!window._firebaseSignUp) throw { code: 'app/not-ready' };
     await window._firebaseSignUp(email, pw, name, code);
   } catch(err) {
     showLoginError(authErrMsg(err.code));
@@ -3257,16 +3235,8 @@ window.doSignUp = async function() {
 
 // ── Google Sign In ──
 window.doGoogleSignIn = async function() {
-  let attempts = 0;
-  while (!window._firebaseGoogleSignIn && attempts < 80) {
-    await new Promise(r => setTimeout(r, 100));
-    attempts++;
-  }
-  if (!window._firebaseGoogleSignIn) {
-    showLoginError('App not ready. Please refresh and try again.');
-    return;
-  }
   try {
+    if (!window._firebaseGoogleSignIn) throw { code: 'app/not-ready' };
     await window._firebaseGoogleSignIn();
   } catch(err) {
     if (err.code !== 'auth/popup-closed-by-user') {
@@ -3282,18 +3252,8 @@ window.showForgotPassword = async function() {
     showLoginError('Enter your email address above first, then click Forgot Password.');
     return;
   }
-
-  let attempts = 0;
-  while (!window._firebaseForgotPassword && attempts < 80) {
-    await new Promise(r => setTimeout(r, 100));
-    attempts++;
-  }
-  if (!window._firebaseForgotPassword) {
-    showLoginError('App not ready. Please refresh the page.');
-    return;
-  }
-
   try {
+    if (!window._firebaseForgotPassword) throw new Error('not-ready');
     await window._firebaseForgotPassword(email);
     showLoginSuccess('✅ Password reset email sent! Check your inbox.');
   } catch(err) {
