@@ -114,6 +114,43 @@ Return exactly 8 drugs. Use simple plain language a student nurse can understand
   }
 });
 
+// ── Drug Search (multiple results) ──
+app.post('/api/search-drugs', async (req, res) => {
+  const { query, count = 15, offset = 0 } = req.body;
+  if (!query) return res.status(400).json({ error: 'query required' });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+
+  const prompt = `You are a clinical pharmacist. A user searched for: "${query}".
+
+This could be a drug name, drug class, or a medical condition/indication.
+
+List ${count} different drugs related to this search (starting from result number ${offset + 1}).
+Include a variety — different drug classes, brand names and generic names.
+
+Respond ONLY with valid JSON — no markdown, no backticks:
+{
+  "drugs": [
+    {
+      "name": "Drug brand/common name",
+      "genericName": "Generic name",
+      "drugClass": "Drug class",
+      "whyUsed": "One simple sentence: why this drug is used for ${query}"
+    }
+  ]
+}
+Return exactly ${count} drugs. All must be real, clinically accurate drugs. No duplicates. Replace all placeholder text.`;
+
+  try {
+    const data = await callClaude(prompt, 2000);
+    return res.json(data);
+  } catch (err) {
+    console.error('Drug search error:', err.message);
+    return res.status(500).json({ error: 'Search failed.' });
+  }
+});
+
 // ── Drug Profile ──
 app.post('/api/drug', async (req, res) => {
   const { drug } = req.body;
